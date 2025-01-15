@@ -465,33 +465,52 @@
                 // Get all available voices
                 let voices = speechSynthesis.getVoices();
                 
-                // Try multiple approaches to get Zira
-                let ziraVoice = voices.find(voice => 
-                    voice.name === 'Microsoft Zira Desktop' || 
-                    voice.name === 'Microsoft Zira' ||
-                    (voice.name.includes('Zira') && voice.lang.includes('en'))
-                );
-                
-                if (ziraVoice) {
-                    utterance.voice = ziraVoice;
-                    console.log('Using voice:', ziraVoice.name);
-                } else {
-                    // Fallback to any English female voice
-                    voices = voices.filter(voice => 
-                        voice.lang.includes('en') && 
-                        (voice.name.includes('Female') || voice.name.includes('woman'))
+                // Priority list for female English voices
+                const preferredVoices = [
+                    'Google US English Female',
+                    'Google UK Female',
+                    'en-US-Standard-Female',
+                    'Microsoft Zira Desktop',
+                    'Samantha',
+                    'Victoria'
+                ];
+
+                // Try to find a preferred voice
+                let selectedVoice = null;
+                for (const voiceName of preferredVoices) {
+                    const voice = voices.find(v => 
+                        v.name === voiceName || 
+                        v.name.toLowerCase().includes(voiceName.toLowerCase())
                     );
-                    
-                    if (voices.length > 0) {
-                        utterance.voice = voices[0];
-                        console.log('Fallback to voice:', voices[0].name);
+                    if (voice) {
+                        selectedVoice = voice;
+                        break;
                     }
+                }
+
+                // Fallback to any English female voice
+                if (!selectedVoice) {
+                    selectedVoice = voices.find(voice => 
+                        voice.lang.includes('en') && 
+                        (voice.name.toLowerCase().includes('female') || 
+                         !voice.name.toLowerCase().includes('male'))
+                    );
+                }
+
+                // Final fallback to any English voice
+                if (!selectedVoice) {
+                    selectedVoice = voices.find(voice => voice.lang.includes('en'));
+                }
+
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                    console.log('Using voice:', selectedVoice.name);
                 }
 
                 // Enhanced voice parameters
                 utterance.rate = 0.95;     // Slightly slower for stability
-                utterance.pitch = 1.0;     // Natural pitch
-                utterance.volume = 1.5;    // Increased volume (max is 1.0, but we'll try)
+                utterance.pitch = 1.1;     // Slightly higher for female voice
+                utterance.volume = 1.0;    // Full volume
 
                 // Break long text into sentences to prevent voice breaks
                 const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
@@ -524,7 +543,7 @@
                 };
 
                 speechSynthesis.speak(utterance);
-            }, 100); // Small delay before starting speech
+            }, 100);
         }
 
         toggleVAD.addEventListener('click', () => {
@@ -536,26 +555,32 @@
             }
         });
 
-        // Initialize voices with English preference
+        // Initialize voices
+        let voicesInitialized = false;
         speechSynthesis.addEventListener('voiceschanged', () => {
+            if (voicesInitialized) return;
+            voicesInitialized = true;
+            
             const voices = speechSynthesis.getVoices();
-            const ziraVoice = voices.find(voice => 
-                (voice.name === 'Microsoft Zira Desktop' || voice.name === 'Microsoft Zira') && 
-                voice.lang.includes('en')
+            console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+            
+            // Test speak with empty utterance to initialize voice
+            const testUtterance = new SpeechSynthesisUtterance('');
+            testUtterance.lang = 'en-US';
+            
+            // Try to set a good default voice
+            const defaultVoice = voices.find(v => 
+                v.name === 'Google US English Female' || 
+                v.name === 'Google UK Female' ||
+                (v.lang.includes('en') && v.name.toLowerCase().includes('female'))
             );
             
-            if (ziraVoice) {
-                // Set Zira as default
-                const utterance = new SpeechSynthesisUtterance('');
-                utterance.voice = ziraVoice;
-                utterance.lang = 'en-US';
-                speechSynthesis.speak(utterance);
-                console.log('Default voice set to:', ziraVoice.name);
-                console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
-            } else {
-                console.warn('Microsoft Zira voice not found!');
-                console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+            if (defaultVoice) {
+                testUtterance.voice = defaultVoice;
+                console.log('Default voice set to:', defaultVoice.name);
             }
+            
+            speechSynthesis.speak(testUtterance);
         });
 
         // Initialize
