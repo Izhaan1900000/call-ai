@@ -2,6 +2,7 @@ const express = require('express');
 const Groq = require('groq-sdk');
 const multer = require('multer');
 const path = require('path');
+const { Readable } = require('stream');
 require('dotenv').config();
 
 const app = express();
@@ -23,20 +24,28 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY || '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'
 });
 
+// Function to convert buffer to stream
+function bufferToStream(buffer) {
+  const readable = new Readable();
+  readable._read = () => {}; // _read is required but you can noop it
+  readable.push(buffer);
+  readable.push(null);
+  return readable;
+}
+
 // Function to transcribe audio
 async function transcribeAudio(audioBuffer) {
   try {
-    // Create a Blob from the buffer
-    const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
+    // Convert buffer to stream
+    const audioStream = bufferToStream(audioBuffer);
 
-    // Create form data
-    const formData = new FormData();
-    formData.append('file', audioBlob, 'audio.wav');
-    formData.append('model', 'whisper-large-v3-turbo');
-    formData.append('language', 'en');
+    // Add file properties to make it compatible with Groq's API
+    audioStream.path = 'audio.wav';
+    audioStream.name = 'audio.wav';
+    audioStream.mimetype = 'audio/wav';
 
     const transcription = await groq.audio.transcriptions.create({
-      file: audioBlob,
+      file: audioStream,
       model: "whisper-large-v3-turbo",
       language: "en",
     });
@@ -44,13 +53,17 @@ async function transcribeAudio(audioBuffer) {
     return transcription.text;
   } catch (error) {
     console.error('Transcription error:', error);
-    throw error;
+    throw new Error(`Transcription failed: ${error.message}`);
   }
 }
 
 // Function to get AI response
 async function getAIResponse(text, sessionId) {
   try {
+    if (!text || text.trim().length === 0) {
+      throw new Error('No speech detected');
+    }
+
     // Get or initialize conversation history
     if (!conversationHistory.has(sessionId)) {
       conversationHistory.set(sessionId, []);
@@ -90,22 +103,27 @@ async function getAIResponse(text, sessionId) {
     return response;
   } catch (error) {
     console.error('AI response error:', error);
-    throw error;
+    throw new Error(`AI response failed: ${error.message}`);
   }
 }
 
 // Handle audio upload and processing
 app.post('/process-audio', upload.single('audio'), async (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       throw new Error('No audio file received');
     }
 
     const sessionId = req.headers['session-id'] || Date.now().toString();
 
     // Process audio buffer directly
+    console.log('Starting transcription...');
     const transcription = await transcribeAudio(req.file.buffer);
+    console.log('Transcription completed:', transcription);
+
+    console.log('Getting AI response...');
     const aiResponse = await getAIResponse(transcription, sessionId);
+    console.log('AI response received:', aiResponse);
 
     res.json({
       transcription,
@@ -115,7 +133,8 @@ app.post('/process-audio', upload.single('audio'), async (req, res) => {
   } catch (error) {
     console.error('Error processing audio:', error);
     res.status(500).json({ 
-      error: 'Error processing audio: ' + error.message,
+      error: 'Error processing audio',
+      message: error.message,
       details: error.stack
     });
   }
