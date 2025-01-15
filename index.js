@@ -6,21 +6,27 @@ const multer = require('multer');
 require('dotenv').config();
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3001;
 
 // In-memory conversation history store
 const conversationHistory = new Map();
 
-// Configure multer for handling file uploads with memory storage for faster processing
+// Configure multer for handling file uploads with memory storage
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-app.use(express.static('public'));
+// Serve static files from the public directory
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 // Initialize Groq client
 const groq = new Groq({
-  apiKey: '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'
+  apiKey: process.env.GROQ_API_KEY || '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'
+});
+
+// Root route to serve index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Function to transcribe audio
@@ -127,12 +133,17 @@ app.post('/clear-history', (req, res) => {
   res.json({ success: true });
 });
 
+// Catch-all route to handle client-side routing
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something broke!' });
 });
 
-app.listen(3001, () => {
-  console.log(`Server running at http://localhost:3001`);
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 }); 
