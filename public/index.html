@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call with Friend</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Samsung Sans', 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a237e, #0d47a1);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: white;
+        }
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .caller-info {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .caller-avatar {
+            width: 120px;
+            height: 120px;
+            background-color: #64b5f6;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            background-image: url('https://imgs.search.brave.com/tYGxIR-4hXUsHnEfVqEqFnD6m0O0Qa4TVUDZtuP7TYc/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9pLmRh/aWx5bWFpbC5jby51/ay9pL3BpeC8yMDEz/LzA3LzIxL2FydGlj/bGUtMjM3MjQ3OS0w/MDA0ODAxNzAwMDAw/MjU4LTgxNV82MzR4/NDU2LmpwZw');
+            background-size: cover;
+            background-position: center;
+        }
+        .caller-name {
+            font-size: 32px;
+            margin: 10px 0;
+        }
+        .call-duration {
+            font-size: 24px;
+            color: #e0e0e0;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+        .call-status {
+            font-size: 18px;
+            color: #e0e0e0;
+            margin-top: 10px;
+        }
+        .controls {
+            margin-top: auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .control-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            transition: all 0.3s ease;
+            background-color: rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+        .control-btn i {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        .control-btn .label {
+            font-size: 12px;
+            position: absolute;
+            bottom: -20px;
+            white-space: nowrap;
+        }
+        .control-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+        .control-btn.active {
+            background-color: #f44336;
+        }
+        .end-call {
+            background-color: #f44336 !important;
+        }
+        .mute {
+            background-color: #424242;
+        }
+        .mute.active {
+            background-color: #f44336;
+        }
+        .permission-btn {
+            background-color: #2196f3;
+            width: 100px;
+            height: 100px;
+        }
+        .permission-btn i {
+            font-size: 40px;
+        }
+        #visualizer {
+            width: 100%;
+            height: 60px;
+            margin: 20px 0;
+            border-radius: 30px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .hidden {
+            display: none !important;
+        }
+        .call-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+        }
+        .developer-credit {
+            position: fixed;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            padding: 10px;
+        }
+        .developer-credit i {
+            color: #ff4081;
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="caller-info">
+            <div class="caller-avatar"></div>
+            <h1 class="caller-name">Alex</h1>
+            <div id="duration" class="call-duration">00:00</div>
+            <div id="status" class="call-status">Ready to start</div>
+        </div>
+
+        <canvas id="visualizer"></canvas>
+
+        <div id="permissionContainer" class="permission-container">
+            <button id="permissionButton" class="control-btn permission-btn">
+                <i class="fas fa-microphone"></i>
+                <span class="label">Grant Microphone Access</span>
+            </button>
+        </div>
+
+        <div id="mainControls" class="hidden">
+            <div class="call-controls">
+                <button id="muteButton" class="control-btn mute">
+                    <i class="fas fa-microphone"></i>
+                    <span class="label">Mute</span>
+                </button>
+                <button id="toggleVAD" class="control-btn">
+                    <i class="fas fa-phone"></i>
+                    <span class="label">Answer</span>
+                </button>
+                <button id="endCallButton" class="control-btn end-call">
+                    <i class="fas fa-phone-slash"></i>
+                    <span class="label">End Call</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="developer-credit">
+        Developed with <i class="fas fa-heart"></i> by Izhan
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioContext;
+        let analyser;
+        let isListening = false;
+        let silenceStart = null;
+        let isSpeaking = false;
+        let isMuted = false;
+        let callStartTime = null;
+        let durationInterval = null;
+        let sessionId = null;
+        const SILENCE_THRESHOLD = 0.05;
+        const SILENCE_DURATION = 2000;
+        const speechSynthesis = window.speechSynthesis;
+        
+        // DOM Elements
+        const permissionButton = document.getElementById('permissionButton');
+        const permissionContainer = document.getElementById('permissionContainer');
+        const mainControls = document.getElementById('mainControls');
+        const toggleVAD = document.getElementById('toggleVAD');
+        const muteButton = document.getElementById('muteButton');
+        const endCallButton = document.getElementById('endCallButton');
+        const status = document.getElementById('status');
+        const duration = document.getElementById('duration');
+        const visualizer = document.getElementById('visualizer');
+        const canvasCtx = visualizer.getContext('2d');
+
+        function updateCallDuration() {
+            if (!callStartTime) return;
+            const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const seconds = (elapsed % 60).toString().padStart(2, '0');
+            duration.textContent = `${minutes}:${seconds}`;
+        }
+
+        function startCall() {
+            sessionId = Date.now().toString(); // Initialize new session
+            callStartTime = Date.now();
+            durationInterval = setInterval(updateCallDuration, 1000);
+            isListening = true;
+            toggleVAD.classList.add('active');
+            status.textContent = 'Call in progress';
+        }
+
+        async function endCall() {
+            isListening = false;
+            isSpeaking = false;
+            speechSynthesis.cancel(); // Immediately stop any ongoing speech
+            
+            // Clear conversation history
+            if (sessionId) {
+                try {
+                    await fetch('/clear-history', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ sessionId })
+                    });
+                } catch (error) {
+                    console.error('Error clearing history:', error);
+                }
+                sessionId = null;
+            }
+
+            clearInterval(durationInterval);
+            callStartTime = null;
+            duration.textContent = '00:00';
+            toggleVAD.classList.remove('active');
+            status.textContent = 'Call ended';
+            window.location.reload();
+        }
+
+        // Event Listeners
+        muteButton.addEventListener('click', () => {
+            isMuted = !isMuted;
+            muteButton.classList.toggle('active');
+            if (isMuted) {
+                speechSynthesis.cancel(); // Stop speaking if muted
+            }
+            status.textContent = isMuted ? 'Muted' : 'Call in progress';
+        });
+
+        endCallButton.addEventListener('click', endCall);
+
+        async function checkMicrophonePermission() {
+            try {
+                const result = await navigator.permissions.query({ name: 'microphone' });
+                if (result.state === 'granted') {
+                    permissionContainer.classList.add('hidden');
+                    mainControls.classList.remove('hidden');
+                    await setupAudio();
+                } else if (result.state === 'prompt') {
+                    permissionContainer.classList.remove('hidden');
+                    mainControls.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error checking permission:', error);
+                permissionContainer.classList.remove('hidden');
+                mainControls.classList.add('hidden');
+            }
+        }
+
+        permissionButton.addEventListener('click', async () => {
+            try {
+                await setupAudio();
+                permissionContainer.classList.add('hidden');
+                mainControls.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error getting microphone permission:', error);
+                status.textContent = 'Error: Could not access microphone. Please ensure you have a microphone connected and try again.';
+            }
+        });
+
+        async function setupAudio() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new AudioContext();
+                analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    await processAudio(audioBlob);
+                };
+
+                setupVAD(analyser);
+                setupVisualizer();
+            } catch (error) {
+                console.error('Error setting up audio:', error);
+                throw error;
+            }
+        }
+
+        function setupVAD(analyser) {
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Float32Array(bufferLength);
+            
+            function detectSound() {
+                if (!isListening) return;
+                
+                analyser.getFloatTimeDomainData(dataArray);
+                const volume = Math.sqrt(dataArray.reduce((acc, val) => acc + val * val, 0) / bufferLength);
+                
+                if (volume > SILENCE_THRESHOLD) {
+                    if (!isSpeaking) {
+                        startRecording();
+                    }
+                    if (speechSynthesis.speaking) {
+                        speechSynthesis.cancel(); // Stop AI if user starts speaking
+                    }
+                    silenceStart = null;
+                    isSpeaking = true;
+                } else if (isSpeaking) {
+                    if (!silenceStart) {
+                        silenceStart = Date.now();
+                    } else if (Date.now() - silenceStart > SILENCE_DURATION) {
+                        stopRecording();
+                    }
+                }
+                
+                requestAnimationFrame(detectSound);
+            }
+
+            window.detectSound = detectSound;
+        }
+
+        function setupVisualizer() {
+            analyser.fftSize = 2048;
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            function draw() {
+                if (!isListening) return;
+                
+                requestAnimationFrame(draw);
+                analyser.getByteTimeDomainData(dataArray);
+                
+                canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                canvasCtx.fillRect(0, 0, visualizer.width, visualizer.height);
+                canvasCtx.lineWidth = 3;
+                canvasCtx.strokeStyle = '#64b5f6';
+                canvasCtx.beginPath();
+                
+                const sliceWidth = visualizer.width / bufferLength;
+                let x = 0;
+                
+                for (let i = 0; i < bufferLength; i++) {
+                    const v = dataArray[i] / 128.0;
+                    const y = v * visualizer.height / 2;
+                    
+                    if (i === 0) {
+                        canvasCtx.moveTo(x, y);
+                    } else {
+                        canvasCtx.lineTo(x, y);
+                    }
+                    
+                    x += sliceWidth;
+                }
+                
+                canvasCtx.lineTo(visualizer.width, visualizer.height / 2);
+                canvasCtx.stroke();
+            }
+
+            draw();
+        }
+
+        function startRecording() {
+            audioChunks = [];
+            mediaRecorder.start();
+            status.textContent = 'Recording...';
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            isSpeaking = false;
+            silenceStart = null;
+            status.textContent = 'Processing...';
+        }
+
+        async function processAudio(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob);
+
+            try {
+                const headers = {};
+                if (sessionId) {
+                    headers['session-id'] = sessionId;
+                }
+
+                const response = await fetch('/process-audio', {
+                    method: 'POST',
+                    headers: headers,
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server error');
+                }
+
+                const data = await response.json();
+                if (!sessionId && data.sessionId) {
+                    sessionId = data.sessionId;
+                }
+                speakResponse(data.aiResponse);
+            } catch (error) {
+                console.error('Error processing audio:', error);
+                status.textContent = 'Error processing audio';
+            }
+        }
+
+        function speakResponse(text) {
+            if (isMuted) return;
+            
+            // Cancel any ongoing speech
+            speechSynthesis.cancel();
+            
+            // Wait a bit before starting new speech to prevent voice cracks
+            setTimeout(() => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                
+                // Force English language
+                utterance.lang = 'en-US';
+                
+                // Get all available voices
+                let voices = speechSynthesis.getVoices();
+                
+                // Try multiple approaches to get Zira
+                let ziraVoice = voices.find(voice => 
+                    voice.name === 'Microsoft Zira Desktop' || 
+                    voice.name === 'Microsoft Zira' ||
+                    (voice.name.includes('Zira') && voice.lang.includes('en'))
+                );
+                
+                if (ziraVoice) {
+                    utterance.voice = ziraVoice;
+                    console.log('Using voice:', ziraVoice.name);
+                } else {
+                    // Fallback to any English female voice
+                    voices = voices.filter(voice => 
+                        voice.lang.includes('en') && 
+                        (voice.name.includes('Female') || voice.name.includes('woman'))
+                    );
+                    
+                    if (voices.length > 0) {
+                        utterance.voice = voices[0];
+                        console.log('Fallback to voice:', voices[0].name);
+                    }
+                }
+
+                // Enhanced voice parameters
+                utterance.rate = 0.95;     // Slightly slower for stability
+                utterance.pitch = 1.0;     // Natural pitch
+                utterance.volume = 1.5;    // Increased volume (max is 1.0, but we'll try)
+
+                // Break long text into sentences to prevent voice breaks
+                const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+                let currentIndex = 0;
+
+                utterance.onstart = () => {
+                    status.textContent = 'Friend is speaking...';
+                };
+
+                utterance.onend = () => {
+                    currentIndex++;
+                    if (currentIndex < sentences.length) {
+                        // Speak next sentence with a small delay
+                        setTimeout(() => {
+                            const nextUtterance = new SpeechSynthesisUtterance(sentences[currentIndex]);
+                            nextUtterance.voice = utterance.voice;
+                            nextUtterance.rate = utterance.rate;
+                            nextUtterance.pitch = utterance.pitch;
+                            nextUtterance.volume = utterance.volume;
+                            speechSynthesis.speak(nextUtterance);
+                        }, 100);
+                    } else {
+                        status.textContent = isListening ? 'Call in progress' : 'Call ended';
+                    }
+                };
+
+                utterance.onerror = (event) => {
+                    console.error('Speech error:', event);
+                    status.textContent = isListening ? 'Call in progress' : 'Call ended';
+                };
+
+                speechSynthesis.speak(utterance);
+            }, 100); // Small delay before starting speech
+        }
+
+        toggleVAD.addEventListener('click', () => {
+            if (!isListening) {
+                startCall();
+                detectSound();
+            } else {
+                endCall();
+            }
+        });
+
+        // Initialize voices with English preference
+        speechSynthesis.addEventListener('voiceschanged', () => {
+            const voices = speechSynthesis.getVoices();
+            const ziraVoice = voices.find(voice => 
+                (voice.name === 'Microsoft Zira Desktop' || voice.name === 'Microsoft Zira') && 
+                voice.lang.includes('en')
+            );
+            
+            if (ziraVoice) {
+                // Set Zira as default
+                const utterance = new SpeechSynthesisUtterance('');
+                utterance.voice = ziraVoice;
+                utterance.lang = 'en-US';
+                speechSynthesis.speak(utterance);
+                console.log('Default voice set to:', ziraVoice.name);
+                console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+            } else {
+                console.warn('Microsoft Zira voice not found!');
+                console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`));
+            }
+        });
+
+        // Initialize
+        checkMicrophonePermission();
+    </script>
+</body>
+</html> 
