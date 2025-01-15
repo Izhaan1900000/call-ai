@@ -24,30 +24,31 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY || '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'
 });
 
-// Function to convert buffer to stream
-function bufferToStream(buffer) {
-  const readable = new Readable();
-  readable._read = () => {}; // _read is required but you can noop it
-  readable.push(buffer);
-  readable.push(null);
-  return readable;
+// Function to create a readable stream from a buffer
+function bufferToReadableStream(buffer) {
+  return new Readable({
+    read() {
+      this.push(buffer);
+      this.push(null);
+    }
+  });
 }
 
 // Function to transcribe audio
 async function transcribeAudio(audioBuffer) {
   try {
-    // Convert buffer to stream
-    const audioStream = bufferToStream(audioBuffer);
-
-    // Add file properties to make it compatible with Groq's API
-    audioStream.path = 'audio.wav';
-    audioStream.name = 'audio.wav';
-    audioStream.mimetype = 'audio/wav';
+    // Create a readable stream from the buffer
+    const stream = bufferToReadableStream(audioBuffer);
+    
+    // Add required properties for Groq API
+    stream.name = 'audio.wav';
+    stream.path = 'audio.wav';
+    stream.mimetype = 'audio/wav';
 
     const transcription = await groq.audio.transcriptions.create({
-      file: audioStream,
+      file: stream,
       model: "whisper-large-v3-turbo",
-      language: "en",
+      language: "en"
     });
 
     return transcription.text;
