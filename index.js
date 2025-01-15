@@ -1,8 +1,7 @@
 const express = require('express');
 const Groq = require('groq-sdk');
-const fs = require('fs');
-const path = require('path');
 const multer = require('multer');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -11,11 +10,11 @@ const port = process.env.PORT || 3001;
 // In-memory conversation history store
 const conversationHistory = new Map();
 
-// Configure multer for handling file uploads with memory storage
+// Configure multer for memory storage
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// Serve static files from the public directory
+// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
@@ -24,26 +23,24 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY || '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'
 });
 
-// Root route to serve index.html
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
 // Function to transcribe audio
 async function transcribeAudio(audioBuffer) {
   try {
-    // Write buffer to temporary file
-    const tempPath = path.join(__dirname, `temp-${Date.now()}.wav`);
-    fs.writeFileSync(tempPath, audioBuffer);
+    // Create a Blob from the buffer
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.wav');
+    formData.append('model', 'whisper-large-v3-turbo');
+    formData.append('language', 'en');
 
     const transcription = await groq.audio.transcriptions.create({
-      file: fs.createReadStream(tempPath),
+      file: audioBlob,
       model: "whisper-large-v3-turbo",
       language: "en",
     });
 
-    // Clean up temp file
-    fs.unlinkSync(tempPath);
     return transcription.text;
   } catch (error) {
     console.error('Transcription error:', error);
@@ -60,9 +57,9 @@ async function getAIResponse(text, sessionId) {
     }
     const history = conversationHistory.get(sessionId);
 
-    // Keep only last 10 messages to maintain context without slowing down
+    // Keep only last 10 messages
     if (history.length > 20) {
-      history.splice(0, 2); // Remove oldest message pair
+      history.splice(0, 2);
     }
 
     const messages = [
@@ -104,13 +101,10 @@ app.post('/process-audio', upload.single('audio'), async (req, res) => {
       throw new Error('No audio file received');
     }
 
-    // Get or generate session ID
     const sessionId = req.headers['session-id'] || Date.now().toString();
 
     // Process audio buffer directly
     const transcription = await transcribeAudio(req.file.buffer);
-    
-    // Get AI response with conversation history
     const aiResponse = await getAIResponse(transcription, sessionId);
 
     res.json({
@@ -120,11 +114,14 @@ app.post('/process-audio', upload.single('audio'), async (req, res) => {
     });
   } catch (error) {
     console.error('Error processing audio:', error);
-    res.status(500).json({ error: 'Error processing audio: ' + error.message });
+    res.status(500).json({ 
+      error: 'Error processing audio: ' + error.message,
+      details: error.stack
+    });
   }
 });
 
-// Endpoint to clear conversation history
+// Clear conversation history
 app.post('/clear-history', (req, res) => {
   const sessionId = req.body.sessionId;
   if (sessionId && conversationHistory.has(sessionId)) {
@@ -133,15 +130,19 @@ app.post('/clear-history', (req, res) => {
   res.json({ success: true });
 });
 
-// Catch-all route to handle client-side routing
+// Serve index.html for all routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something broke!' });
+  console.error('Server error:', err);
+  res.status(500).json({ 
+    error: 'Server error',
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
 app.listen(port, () => {
